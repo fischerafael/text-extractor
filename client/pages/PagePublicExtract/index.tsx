@@ -5,11 +5,30 @@ import { InputDropzone } from "@/client/components/InputDropzone";
 
 interface State {
   file: null | File;
+  isLoading: boolean;
+  text: string;
 }
+
+const extractService = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const url = "/api/extract-text-from-pdf";
+  const options = {
+    method: "POST",
+    body: formData,
+  };
+
+  const res = await fetch(url, options);
+  const data = await res.json();
+  const text = data.result.text;
+  return text;
+};
 
 export const PagePublicExtract = () => {
   const [state, setState] = useState<State>({
     file: null,
+    isLoading: false,
+    text: "",
   });
 
   const onRemoveFile = () => {
@@ -18,6 +37,27 @@ export const PagePublicExtract = () => {
 
   const onDrop = (files: File[]) => {
     setState((prev) => ({ ...prev, file: files[0] }));
+  };
+
+  const extract = async () => {
+    try {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      const res = await extractService(state.file!);
+      setState((prev) => ({ ...prev, text: res, file: null }));
+    } catch (e: any) {
+      console.log("[e]", e.message);
+    } finally {
+      setState((prev) => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const onCleanText = () => {
+    setState((prev) => ({ ...prev, text: "" }));
+  };
+
+  const onCopyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("Copied");
   };
 
   return (
@@ -43,7 +83,33 @@ export const PagePublicExtract = () => {
           </C.HStack>
         )}
 
-        {!!state.file && <Button alignSelf="flex-end">Extract Text</Button>}
+        {!!state.file && (
+          <Button
+            isLoading={state.isLoading}
+            alignSelf="flex-end"
+            onClick={extract}
+          >
+            Extract Text
+          </Button>
+        )}
+
+        {!!state.text && (
+          <C.VStack w="full">
+            <C.HStack w="full" justify="space-between">
+              <Button onClick={() => onCopyToClipboard(state.text)}>
+                Copy Text
+              </Button>
+              <Button onClick={onCleanText}>Clean Text</Button>
+            </C.HStack>
+            <C.Text>{state.text}</C.Text>
+            <C.HStack w="full" justify="space-between">
+              <Button onClick={() => onCopyToClipboard(state.text)}>
+                Copy Text
+              </Button>
+              <Button onClick={onCleanText}>Clean Text</Button>
+            </C.HStack>
+          </C.VStack>
+        )}
       </C.VStack>
     </C.VStack>
   );
